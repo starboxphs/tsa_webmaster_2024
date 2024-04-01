@@ -1,0 +1,44 @@
+<div class="container mt-4">
+    <h1>Green Home Energy</h1>
+    <p>Green home energy solutions are essential for creating a sustainable future. By utilizing renewable energy
+        sources and efficient technologies, we can significantly reduce our environmental footprint and promote a
+        healthier planet. This page explores various aspects of green home energy, including solar panels, wind
+        turbines, energy-efficient appliances, and more.</p>
+
+    <h2>Solar Energy</h2>
+    <p>Solar panels are a popular choice for homeowners looking to reduce electricity costs and decrease their carbon
+        footprint. They convert sunlight into electricity, providing a clean and renewable source of energy for your
+        home.</p>
+
+    <h2>Wind Energy</h2>
+    <p>Small-scale wind turbines can be an effective solution for generating energy in windy areas. These turbines can
+        supplement your home's energy needs, further reducing reliance on non-renewable energy sources.</p>
+
+    <h2>Energy-Efficient Appliances</h2>
+    <p>Investing in energy-efficient appliances is another way to reduce energy consumption. Look for products with the
+        Energy Star label to ensure you're getting appliances that meet strict energy efficiency guidelines set by the
+        EPA.</p>
+
+    <h2>Insulation and Windows</h2>
+    <p>Improving your home's insulation and upgrading to energy-efficient windows can significantly reduce heating and
+        cooling costs. These improvements help maintain a comfortable indoor temperature year-round, using less
+        energy.</p>
+
+    <h2>Geothermal Systems</h2>
+    <p>Geothermal heat pumps use the stable temperature of the earth to heat and cool your home more efficiently than
+        traditional systems. While the upfront cost can be higher, the long-term savings and environmental benefits are
+        substantial.</p>
+</div>
+
+<!-- FOOTER -->
+<div id="footer-placeholder"></div>
+
+<script>
+    $(function(){
+      $("#footer-placeholder").load("/content/footer.html");
+    });
+</script>
+<!--end of FOOTER-->
+
+</body>
+</html>

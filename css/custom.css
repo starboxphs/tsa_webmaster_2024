@@ -1,0 +1,18 @@
+
+
+  #intro {
+      background-image: url("/media/background.jpg");
+      height: 100vh;
+      background-size: cover;
+  }
+      /* Height for devices larger than 576px */
+    @media (min-width: 992px) {
+      #intro {
+        margin-top: -58.59px;
+      }
+    }
+
+  .border-fill {
+    border-image: fill 0
+    linear-gradient(#0001 60%,#000); /* your gradient here */
+}
