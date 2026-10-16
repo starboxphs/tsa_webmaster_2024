@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ramp Lab Simulator</title>
+<style>
+/* Layout: lab bench. Diagram left, controls right; stacks on narrow screens. */
+:root {
+  --bg: #eef0ee; --panel: #ffffff; --ink: #1d2326; --muted: #5a6468; --line: #c6cccd;
+  --wood: #b8834a; --wood-dark: #8c5f2f; --book1: #3f6e8c; --book2: #8c3f4f; --book3: #4f7d4a;
+  --steel: #6f7a7f; --rope: #7a4e22; --accent: #c85a17; --accent-ink: #ffffff;
+  --good: #2b7a4b; --bad: #b3261e; --chip-good: #e2f1e7; --chip-bad: #fae4e2; --car: #2f5f8f;
+  --f: system-ui, "Segoe UI", Roboto, Arial, sans-serif; --mono: ui-monospace, Consolas, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #15191b; --panel: #1f2528; --ink: #e6eaeb; --muted: #a0aaae; --line: #384146;
+  --wood: #b98a57; --wood-dark: #8d6438; --steel: #8f9a9f; --rope: #d29a5f; --accent: #ef7a33; --accent-ink: #161616;
+  --good: #6cc792; --bad: #f08a80; --chip-good: #1e3a29; --chip-bad: #40221f; --car: #6ea4d8; color-scheme: dark } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f); font-size: 16px; line-height: 1.45; }
+.wrap { max-width: 1000px; margin: 0 auto; padding: 20px 16px 32px; display: grid; gap: 16px; }
+h1 { margin: 0; font-size: 1.55rem; }
+.sub { margin: 4px 0 0; color: var(--muted); max-width: 64ch; }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.tab { font: 700 0.95rem var(--f); padding: 9px 14px; border: 1.5px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); cursor: pointer; }
+.tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.main { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 760px) { .main { grid-template-columns: 1fr; } }
+.stage { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.stage svg { display: block; width: 100%; height: auto; }
+.controls { display: grid; gap: 14px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 10px; }
+.label { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; }
+.facts dt { color: var(--muted); } .facts dd { margin: 0; font: 600 1rem var(--mono); }
+.stepper { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.stepper button.sq { width: 44px; height: 44px; font: 700 1.4rem var(--f); border-radius: 6px; border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+.count { font: 600 2rem var(--mono); min-width: 2.2ch; text-align: center; }
+.go { font: 700 1rem var(--f); padding: 11px 16px; border-radius: 6px; border: 0; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+.go:disabled { opacity: .55; cursor: default; }
+.chip { padding: 8px 12px; border-radius: 6px; font-weight: 700; }
+.chip.good { background: var(--chip-good); color: var(--good); } .chip.bad { background: var(--chip-bad); color: var(--bad); }
+.chip.idle { background: var(--bg); color: var(--muted); font-weight: 400; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.readouts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.readout { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+.readout b { display: block; font: 600 1.45rem var(--mono); } .readout span { color: var(--muted); font-size: .85rem; }
+.hint { margin: 0; color: var(--muted); font-size: .9rem; }
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Ramp Lab Simulator</h1>
+    <p class="sub">Step 0: weigh the car on the lever. Then set the ramp height and find the fewest effort washers that pull the car up. Record everything in your notebook.</p>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Lab step">
+    <button class="tab" role="tab" id="tab-lever" aria-selected="true" data-v="lever">Step 0: Weigh the car</button>
+    <button class="tab" role="tab" id="tab-ramp" aria-selected="false" data-v="ramp">Ramp trials</button>
+  </div>
+
+  <div class="main">
+    <div class="stage"><svg id="svg" viewBox="0 0 440 430" role="img" aria-label="Lab diagram"></svg></div>
+
+    <div class="controls">
+      <div class="card" id="leverInfo">
+        <div class="label">Lever setup</div>
+        <dl class="facts"><dt>Load arm (car)</dt><dd>10 cm</dd><dt>Effort arm (bag)</dt><dd>40 cm</dd></dl>
+        <p class="hint">When it balances, the car weighs 4 times the washers in the effort bag.</p>
+      </div>
+
+      <div class="card" id="rampInfo" hidden>
+        <div class="label">Ramp setup</div>
+        <dl class="facts"><dt>Board length L</dt><dd>100 cm</dd><dt>Height of top edge</dt><dd id="hOut">25 cm</dd></dl>
+        <label class="label" for="height">Ramp height</label>
+        <input type="range" id="height" min="10" max="60" step="1" value="25">
+      </div>
+
+      <div class="card">
+        <div class="label">Effort washers</div>
+        <div class="stepper">
+          <button class="sq" id="minus" aria-label="Remove one washer">−</button>
+          <span class="count" id="count" aria-live="polite">0</span>
+          <button class="sq" id="plus" aria-label="Add one washer">+</button>
+          <button class="go" id="test">Test</button>
+        </div>
+        <div class="chip idle" id="result" aria-live="polite">Add washers, then press Test.</div>
+      </div>
+
+      <div class="card" id="pullCard" hidden>
+        <label class="label" for="pull">Pull the car up the ramp</label>
+        <input type="range" id="pull" min="0" max="40" step="1" value="0">
+        <div class="readouts">
+          <div class="readout"><b id="dOut">0 cm</b><span>Car moved along ramp</span></div>
+          <div class="readout"><b id="rOut">0.0 cm</b><span>Car rose</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CAR = 32, L = 100, LEVER_BAL = 8, PX = 3;
+const ROLL = 0.03, PENCIL = 0.85;
+const needRamp = h => { const s = h / L, c = Math.sqrt(1 - s * s); return (CAR * s + ROLL * CAR * c) / PENCIL; };
+const $ = id => document.getElementById(id);
+const svg = $('svg');
+const S = { view: 'lever', lever: { n: 0 }, ramp: { n: 0 }, h: 25, tilt: 0, d: 0, ok: false, busy: false };
+const v = n => `var(--${n})`;
+
+function bag(x, y, n) {
+  return `<rect x="${x - 22}" y="${y}" width="44" height="38" rx="6" fill="${v('panel')}" stroke="${v('ink')}" stroke-width="2"/>
+  <text x="${x}" y="${y + 21}" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-weight="700" font-size="16" fill="${v('ink')}">${n}</text>
+  <text x="${x}" y="${y + 33}" text-anchor="middle" font-size="8" letter-spacing="1" fill="${v('muted')}" font-family="system-ui,Arial,sans-serif">EFFORT</text>`;
+}
+function car(cx, cy, ang) {
+  return `<g transform="translate(${cx} ${cy}) rotate(${ang})">
+    <rect x="-20" y="-20" width="40" height="13" rx="4" fill="${v('car')}"/>
+    <rect x="-11" y="-28" width="20" height="9" rx="3" fill="${v('car')}" opacity=".8"/>
+    <circle cx="-12" cy="-5" r="5" fill="${v('ink')}"/><circle cx="12" cy="-5" r="5" fill="${v('ink')}"/></g>`;
+}
+
+function drawLever() {
+  const fx = 220, fy = 230, half = 165, a = S.tilt, T = 330;
+  const rad = a * Math.PI / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+  const pt = cm => [fx + cm * 3.3 * cos, fy - 18 + cm * 3.3 * sin];
+  let g = `<rect x="20" y="${T}" width="400" height="14" fill="${v('wood-dark')}"/>`;
+  g += `<polygon points="${fx},${fy - 16} ${fx - 30},${T} ${fx + 30},${T}" fill="${v('wood')}" stroke="${v('wood-dark')}" stroke-width="2"/>`;
+  g += `<g transform="rotate(${a} ${fx} ${fy - 18})"><rect x="${fx - half}" y="${fy - 24}" width="${half * 2}" height="10" fill="${v('wood')}" stroke="${v('wood-dark')}"/>`;
+  for (let i = -50; i <= 50; i += 10) g += `<line x1="${fx + i * 3.3}" y1="${fy - 24}" x2="${fx + i * 3.3}" y2="${fy - 18}" stroke="${v('wood-dark')}"/>`;
+  g += `</g>`;
+  const [cx, cy] = pt(-10), [bx, by] = pt(40);
+  g += car(cx, cy - 6, a);
+  g += `<line x1="${bx}" y1="${by}" x2="${bx}" y2="${by + 40}" stroke="${v('steel')}" stroke-width="2"/>` + bag(bx, by + 40, S.lever.n);
+  const dim = (x1, x2, t) => `<line x1="${x1}" y1="${fy - 64}" x2="${x2}" y2="${fy - 64}" stroke="${v('muted')}" stroke-width="1"/><line x1="${x1}" y1="${fy - 69}" x2="${x1}" y2="${fy - 59}" stroke="${v('muted')}"/><line x1="${x2}" y1="${fy - 69}" x2="${x2}" y2="${fy - 59}" stroke="${v('muted')}"/><text x="${(x1 + x2) / 2}" y="${fy - 72}" text-anchor="middle" font-size="11" fill="${v('muted')}" font-family="system-ui,Arial,sans-serif">${t}</text>`;
+  if (a === 0) g += dim(fx - 33, fx, '10 cm') + dim(fx, fx + 132, '40 cm');
+  svg.innerHTML = g;
+}
+
+function drawRamp() {
+  const s = S.h / L, c = Math.sqrt(1 - s * s), ang = -Math.asin(s) * 180 / Math.PI;
+  const bx0 = 40, by0 = 250, tx = bx0 + L * PX * c, ty = by0 - L * PX * s;
+  let g = `<rect x="0" y="${by0}" width="${tx + 26}" height="14" fill="${v('wood-dark')}"/>`;
+  g += `<line x1="0" y1="425" x2="440" y2="425" stroke="${v('line')}" stroke-width="2"/>`;
+  const books = [v('book1'), v('book2'), v('book3')];
+  let y = by0, i = 0;
+  while (y - ty > 0.5) { const hh = Math.min(15, y - ty); g += `<rect x="${tx - 34}" y="${y - hh}" width="56" height="${hh}" fill="${books[i % 3]}" stroke="${v('panel')}" stroke-width="1"/>`; y -= hh; i++; }
+  g += `<line x1="${bx0}" y1="${by0}" x2="${tx}" y2="${ty}" stroke="${v('wood')}" stroke-width="9" stroke-linecap="round"/>`;
+  g += `<circle cx="${tx + 3}" cy="${ty - 5}" r="5" fill="${v('accent')}"/>`;
+  const sc = 15 + S.d, cx = bx0 + sc * PX * c, cy = by0 - sc * PX * s;
+  const fx = cx + 20 * c, fy = cy - 20 * s - 12 * c;
+  const hang = 40 + S.d * PX;
+  g += `<polyline points="${fx},${fy} ${tx + 3},${ty - 10} ${tx + 8},${ty - 5} ${tx + 8},${ty + hang}" fill="none" stroke="${v('rope')}" stroke-width="2.5"/>`;
+  g += car(cx, cy - 4, ang) + bag(tx + 8, ty + hang, S.ramp.n);
+  g += `<text x="${(bx0 + tx) / 2 - 30}" y="${(by0 + ty) / 2 + 26}" font-size="11" fill="${v('muted')}" font-family="system-ui,Arial,sans-serif" transform="rotate(${ang} ${(bx0 + tx) / 2} ${(by0 + ty) / 2})">L = 100 cm</text>`;
+  svg.innerHTML = g;
+}
+
+function render() {
+  const st = S[S.view];
+  $('count').textContent = st.n;
+  $('leverInfo').hidden = S.view !== 'lever';
+  $('rampInfo').hidden = S.view !== 'ramp';
+  $('pullCard').hidden = S.view !== 'ramp';
+  $('hOut').textContent = S.h + ' cm';
+  const d = Math.max(0, Math.round(S.d));
+  $('dOut').textContent = d + ' cm';
+  $('rOut').textContent = (d * S.h / L).toFixed(1) + ' cm';
+  S.view === 'lever' ? drawLever() : drawRamp();
+}
+function say(kind, t) { const r = $('result'); r.className = 'chip ' + kind; r.textContent = t; }
+function ease(key, to, dur, done) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { S[key] = to; render(); return done(); }
+  const from = S[key], t0 = performance.now();
+  (function f(t) { const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3); S[key] = from + (to - from) * e; render(); k < 1 ? requestAnimationFrame(f) : done(); })(t0);
+}
+function lock(b) { S.busy = b; $('test').disabled = b; }
+function resetMotion(msg) { S.tilt = 0; S.d = 0; S.ok = false; $('pull').value = 0; if (msg) say('idle', msg); }
+
+$('test').onclick = () => {
+  if (S.busy) return; lock(true);
+  if (S.view === 'lever') {
+    const n = S.lever.n, to = n < LEVER_BAL ? -9 : n > LEVER_BAL ? 9 : 0;
+    S.tilt = 0;
+    ease('tilt', to, 700, () => { lock(false);
+      if (n === LEVER_BAL) say('good', `Balanced with ${n} washers in the effort bag.`);
+      else if (n < LEVER_BAL) say('bad', 'The car side drops. Add washers.');
+      else say('bad', 'The effort side drops. Remove washers.'); });
+  } else {
+    const n = S.ramp.n, ok = n >= needRamp(S.h);
+    S.d = 0; S.ok = false;
+    ease('d', ok ? 40 : -15, 1400, () => { lock(false);
+      if (ok) { S.ok = true; S.d = 0; $('pull').value = 0; render(); say('good', `${n} washers pull the car up. Is this the fewest?`); }
+      else { S.d = 0; render(); say('bad', `${n} washers is not enough. The car rolls back.`); } });
+  }
+};
+$('plus').onclick = () => { if (S.busy) return; const st = S[S.view]; if (st.n >= 30) return say('bad', 'That is every washer in the bag (30).'); st.n++; resetMotion('Press Test to try it.'); render(); };
+$('minus').onclick = () => { if (S.busy || S[S.view].n <= 0) return; S[S.view].n--; resetMotion('Press Test to try it.'); render(); };
+$('height').oninput = e => { if (S.busy) { e.target.value = S.h; return; } S.h = +e.target.value; resetMotion('Height changed. Find the fewest washers again.'); render(); };
+$('pull').oninput = e => {
+  if (S.busy) return;
+  if (!S.ok) { e.target.value = 0; say('bad', 'Find enough washers to pull the car up first.'); return; }
+  S.d = +e.target.value; render();
+};
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  if (S.busy) return;
+  S.view = t.dataset.v;
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b === t));
+  resetMotion('Add washers, then press Test.'); render();
+});
+render();
+</script>
+</body>
+</html>
