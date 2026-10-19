@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Winch Lab Simulator</title>
+<style>
+/* Layout: lab bench. Diagram left, controls right; stacks on narrow screens. Matches the Ramp Lab Simulator. */
+:root {
+  --bg: #eef0ee; --panel: #ffffff; --ink: #1d2326; --muted: #5a6468; --line: #c6cccd;
+  --wood: #b8834a; --wood-dark: #8c5f2f; --steel: #6f7a7f; --rope: #7a4e22;
+  --accent: #c85a17; --accent-ink: #ffffff; --good: #2b7a4b; --bad: #b3261e;
+  --chip-good: #e2f1e7; --chip-bad: #fae4e2; --load: #2f5f8f; --wheel: #dfe3e4;
+  --f: system-ui, "Segoe UI", Roboto, Arial, sans-serif; --mono: ui-monospace, Consolas, "Courier New", monospace;
+}
+@media (prefers-color-scheme: dark) { :root {
+  --bg: #15191b; --panel: #1f2528; --ink: #e6eaeb; --muted: #a0aaae; --line: #384146;
+  --wood: #b98a57; --wood-dark: #8d6438; --steel: #8f9a9f; --rope: #d29a5f; --accent: #ef7a33; --accent-ink: #161616;
+  --good: #6cc792; --bad: #f08a80; --chip-good: #1e3a29; --chip-bad: #40221f; --load: #6ea4d8; --wheel: #2c3438; color-scheme: dark } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--f); font-size: 16px; line-height: 1.45; }
+.wrap { max-width: 1000px; margin: 0 auto; padding: 20px 16px 32px; display: grid; gap: 16px; }
+h1 { margin: 0; font-size: 1.55rem; }
+.sub { margin: 4px 0 0; color: var(--muted); max-width: 64ch; }
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.tab { font: 700 0.95rem var(--f); padding: 9px 14px; border: 1.5px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); cursor: pointer; }
+.tab[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.loadTag { align-self: center; margin-left: auto; font: 700 1rem var(--mono); padding: 8px 12px; border-radius: 6px; background: var(--panel); border: 1.5px solid var(--load); color: var(--load); }
+.newload { font: 700 0.95rem var(--f); padding: 9px 14px; border-radius: 6px; border: 1.5px dashed var(--muted); background: transparent; color: var(--ink); cursor: pointer; }
+button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.main { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 760px) { .main { grid-template-columns: 1fr; } }
+.stage { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.stage svg { display: block; width: 100%; height: auto; }
+.controls { display: grid; gap: 14px; min-width: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; display: grid; gap: 10px; }
+.label { font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; }
+.facts dt { color: var(--muted); } .facts dd { margin: 0; font: 600 1rem var(--mono); }
+.stepper { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.stepper button.sq { width: 44px; height: 44px; font: 700 1.4rem var(--f); border-radius: 6px; border: 1.5px solid var(--line); background: var(--bg); color: var(--ink); cursor: pointer; }
+.count { font: 600 2rem var(--mono); min-width: 2.2ch; text-align: center; }
+.go { font: 700 1rem var(--f); padding: 11px 16px; border-radius: 6px; border: 0; background: var(--accent); color: var(--accent-ink); cursor: pointer; }
+.go:disabled { opacity: .55; cursor: default; }
+.chip { padding: 8px 12px; border-radius: 6px; font-weight: 700; }
+.chip.good { background: var(--chip-good); color: var(--good); } .chip.bad { background: var(--chip-bad); color: var(--bad); }
+.chip.idle { background: var(--bg); color: var(--muted); font-weight: 400; }
+input[type=range] { width: 100%; accent-color: var(--accent); }
+.readouts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.readout { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+.readout b { display: block; font: 600 1.45rem var(--mono); } .readout span { color: var(--muted); font-size: .85rem; }
+.hint { margin: 0; color: var(--muted); font-size: .9rem; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Winch Lab Simulator</h1>
+    <p class="sub">Find the fewest effort washers that lift the load. Try the wheel and axle alone, then the winch, where the axle winds rope through a movable pulley. Record everything in your notebook.</p>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Machine">
+    <button class="tab" role="tab" id="tab-wa" aria-selected="true" data-v="wa">Wheel and axle</button>
+    <button class="tab" role="tab" id="tab-winch" aria-selected="false" data-v="winch">Winch + pulley</button>
+    <span class="loadTag" id="loadTag" aria-live="polite">Load A</span>
+    <button class="newload" id="newLoad">New load</button>
+  </div>
+
+  <div class="main">
+    <div class="stage"><svg id="svg" viewBox="0 0 440 430" role="img" aria-label="Machine diagram"></svg></div>
+
+    <div class="controls">
+      <div class="card">
+        <div class="label">Machine setup</div>
+        <dl class="facts">
+          <dt>Load</dt><dd id="loadOut">42 washers</dd>
+          <dt id="wLabel">Wheel radius</dt><dd id="rOut">20 cm</dd>
+          <dt>Axle radius</dt><dd>5 cm</dd>
+          <dt id="pRow">Pulley</dt><dd id="pOut">none</dd>
+        </dl>
+        <label class="label" for="radius" id="radLabel">Wheel radius</label>
+        <input type="range" id="radius" min="10" max="30" step="5" value="20">
+        <p class="hint" id="hint">The effort rope wraps the wheel. The load rope wraps the axle.</p>
+      </div>
+
+      <div class="card">
+        <div class="label">Effort washers</div>
+        <div class="stepper">
+          <button class="sq" id="minus" aria-label="Remove one washer">−</button>
+          <span class="count" id="count" aria-live="polite">0</span>
+          <button class="sq" id="plus" aria-label="Add one washer">+</button>
+          <button class="go" id="test">Test</button>
+        </div>
+        <div class="chip idle" id="result" aria-live="polite">Add washers, then press Test.</div>
+      </div>
+
+      <div class="card">
+        <label class="label" for="pull">Pull the effort rope down</label>
+        <input type="range" id="pull" min="0" max="60" step="1" value="0">
+        <div class="readouts">
+          <div class="readout"><b id="dOut">0 cm</b><span>Effort rope pulled</span></div>
+          <div class="readout"><b id="lOut">0.0 cm</b><span>Load rose</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const LOADS = { A: 42, B: 30, C: 54, D: 24, E: 48, F: 36 };
+const AXLE = 5, EFF_WA = 0.9, EFF_P = 0.9, K = 3, DROP = 2;
+let code = '', LOAD = 0;
+const S = { view: 'wa', wa: { n: 0, R: 20 }, winch: { n: 0, R: 10 }, d: 0, ok: false, busy: false };
+const $ = id => document.getElementById(id);
+const svg = $('svg');
+const v = n => `var(--${n})`;
+const cur = () => S[S.view];
+const ima = () => (cur().R / AXLE) * (S.view === 'winch' ? 2 : 1);
+const eff = () => S.view === 'winch' ? EFF_WA * EFF_P : EFF_WA;
+const need = () => LOAD / ima() / eff();
+
+function pickLoad() {
+  const keys = Object.keys(LOADS).filter(k => k !== code);
+  code = keys[Math.floor(Math.random() * keys.length)]; LOAD = LOADS[code];
+}
+function bag(x, y, n, label) {
+  return `<rect x="${x - 22}" y="${y}" width="44" height="38" rx="6" fill="${v('panel')}" stroke="${v('ink')}" stroke-width="2"/>
+  <text x="${x}" y="${y + 21}" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-weight="700" font-size="16" fill="${v('ink')}">${n}</text>
+  <text x="${x}" y="${y + 33}" text-anchor="middle" font-size="8" letter-spacing="1" fill="${v('muted')}" font-family="system-ui,Arial,sans-serif">${label}</text>`;
+}
+function block(x, y) {
+  return `<rect x="${x - 30}" y="${y}" width="60" height="44" rx="4" fill="${v('load')}"/>
+  <text x="${x}" y="${y + 20}" text-anchor="middle" font-family="ui-monospace,Consolas,monospace" font-weight="700" font-size="15" fill="${v('panel')}">${LOAD}</text>
+  <text x="${x}" y="${y + 34}" text-anchor="middle" font-size="8" letter-spacing="1" fill="${v('panel')}" font-family="system-ui,Arial,sans-serif">LOAD ${code}</text>`;
+}
+function wheel(cx, cy, R, ang) {
+  const rw = R * K, ra = AXLE * K;
+  let g = `<circle cx="${cx}" cy="${cy}" r="${rw}" fill="${v('wheel')}" stroke="${v('steel')}" stroke-width="4"/>`;
+  for (let i = 0; i < 6; i++) {
+    const a = ang + i * Math.PI / 3;
+    g += `<line x1="${cx + ra * Math.cos(a)}" y1="${cy + ra * Math.sin(a)}" x2="${cx + (rw - 2) * Math.cos(a)}" y2="${cy + (rw - 2) * Math.sin(a)}" stroke="${v('steel')}" stroke-width="2"/>`;
+  }
+  g += `<circle cx="${cx}" cy="${cy}" r="${ra}" fill="${v('wood')}" stroke="${v('wood-dark')}" stroke-width="2"/><circle cx="${cx}" cy="${cy}" r="3" fill="${v('ink')}"/>`;
+  return g;
+}
+function stand(cx, cy) {
+  return `<rect x="20" y="16" width="400" height="12" fill="${v('steel')}"/><line x1="${cx}" y1="28" x2="${cx}" y2="${cy}" stroke="${v('steel')}" stroke-width="6"/>`;
+}
+
+function draw() {
+  const R = cur().R, d = S.d, rise = d / ima(), ang = -d / R;
+  let g = '';
+  if (S.view === 'wa') {
+    const cx = 220, cy = 130;
+    g += stand(cx, cy);
+    const ex = cx - R * K, lx = cx + AXLE * K;
+    const by = 230 + d * DROP, ly = 300 - rise * DROP;
+    g += `<line x1="${ex}" y1="${cy}" x2="${ex}" y2="${by}" stroke="${v('rope')}" stroke-width="2.5"/>`;
+    g += `<line x1="${lx}" y1="${cy}" x2="${lx}" y2="${ly}" stroke="${v('rope')}" stroke-width="2.5"/>`;
+    g += wheel(cx, cy, R, ang) + bag(ex, by, cur().n, 'EFFORT') + block(lx, ly);
+  } else {
+    const cx = 150, cy = 130, pr = 16;
+    g += stand(cx, cy);
+    const ex = cx - R * K, ax = cx + AXLE * K;
+    const by = 240 + d * DROP, py = 300 - rise * DROP;
+    const px = ax + pr, anchor = px + pr;
+    g += `<line x1="${anchor}" y1="28" x2="${anchor}" y2="${py}" stroke="${v('rope')}" stroke-width="2.5"/>`;
+    g += `<line x1="${ex}" y1="${cy}" x2="${ex}" y2="${by}" stroke="${v('rope')}" stroke-width="2.5"/>`;
+    g += `<path d="M ${ax} ${cy} L ${ax} ${py} A ${pr} ${pr} 0 0 0 ${anchor} ${py}" fill="none" stroke="${v('rope')}" stroke-width="2.5"/>`;
+    g += `<circle cx="${px}" cy="${py}" r="${pr}" fill="${v('panel')}" stroke="${v('steel')}" stroke-width="3"/><circle cx="${px}" cy="${py}" r="3" fill="${v('steel')}"/>`;
+    g += `<line x1="${px}" y1="${py}" x2="${px}" y2="${py + 34}" stroke="${v('steel')}" stroke-width="2"/>`;
+    g += wheel(cx, cy, R, ang) + bag(ex, by, cur().n, 'EFFORT') + block(px, py + 34);
+  }
+  svg.innerHTML = g;
+}
+
+function render() {
+  const winch = S.view === 'winch';
+  $('count').textContent = cur().n;
+  $('loadTag').textContent = 'Load ' + code;
+  $('loadOut').textContent = LOAD + ' washers';
+  $('wLabel').textContent = winch ? 'Crank radius' : 'Wheel radius';
+  $('radLabel').textContent = winch ? 'Crank radius' : 'Wheel radius';
+  $('rOut').textContent = cur().R + ' cm';
+  $('radius').value = cur().R;
+  $('pOut').textContent = winch ? '1 movable pulley' : 'none';
+  $('hint').textContent = winch
+    ? 'The effort rope wraps the crank. The axle winds a rope that runs down under a movable pulley and up to the beam.'
+    : 'The effort rope wraps the wheel. The load rope wraps the axle.';
+  const d = Math.max(0, Math.round(S.d));
+  $('dOut').textContent = d + ' cm';
+  $('lOut').textContent = (d / ima()).toFixed(1) + ' cm';
+  draw();
+}
+function say(kind, t) { const r = $('result'); r.className = 'chip ' + kind; r.textContent = t; }
+function ease(to, dur, done) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) { S.d = to; render(); return done(); }
+  const from = S.d, t0 = performance.now();
+  (function f(t) { const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3); S.d = from + (to - from) * e; render(); k < 1 ? requestAnimationFrame(f) : done(); })(t0);
+}
+function lock(b) { S.busy = b; $('test').disabled = b; }
+function reset(msg) { S.d = 0; S.ok = false; $('pull').value = 0; if (msg) say('idle', msg); }
+
+$('test').onclick = () => {
+  if (S.busy) return; lock(true);
+  const n = cur().n, ok = n >= need() - 1e-9;
+  S.d = 0;
+  ease(ok ? 40 : -12, 1400, () => {
+    lock(false); S.d = 0;
+    if (ok) { S.ok = true; say('good', `${n} washers lift the load. Is this the fewest?`); }
+    else say('bad', `${n} washers is not enough. The load drops.`);
+    render();
+  });
+};
+$('plus').onclick = () => { if (S.busy) return; if (cur().n >= 30) return say('bad', 'That is every washer in the bag (30).'); cur().n++; reset('Press Test to try it.'); render(); };
+$('minus').onclick = () => { if (S.busy || cur().n <= 0) return; cur().n--; reset('Press Test to try it.'); render(); };
+$('radius').oninput = e => { if (S.busy) { e.target.value = cur().R; return; } cur().R = +e.target.value; reset('Radius changed. Find the fewest washers again.'); render(); };
+$('pull').oninput = e => {
+  if (S.busy) return;
+  if (!S.ok) { e.target.value = 0; say('bad', 'Find enough washers to lift the load first.'); return; }
+  S.d = +e.target.value; render();
+};
+document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
+  if (S.busy) return;
+  S.view = t.dataset.v;
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b === t));
+  reset('Add washers, then press Test.'); render();
+});
+$('newLoad').onclick = () => {
+  if (S.busy) return;
+  pickLoad(); S.wa.n = 0; S.winch.n = 0;
+  reset(`New load: Load ${code}.`); render();
+};
+pickLoad();
+render();
+</script>
+</body>
+</html>
